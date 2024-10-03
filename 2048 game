@@ -1,0 +1,159 @@
+import tkinter as tk
+import random
+import copy
+
+# Initialize game variables
+SIZE = 4
+TARGET = 2048
+
+class Game2048:
+    def __init__(self):
+        self.window = tk.Tk()
+        self.window.title("2048 Game")
+        self.score = 0
+        self.previous_board = None
+        self.board = [[0] * SIZE for _ in range(SIZE)]
+        self.create_ui()
+        self.start_game()
+        self.window.mainloop()
+
+    # Start a new game
+    def start_game(self):
+        self.add_new_tile()
+        self.add_new_tile()
+        self.update_ui()
+
+    # Add a new tile of value 2 or 4 to a random empty position
+    def add_new_tile(self):
+        empty_tiles = [(r, c) for r in range(SIZE) for c in range(SIZE) if self.board[r][c] == 0]
+        if empty_tiles:
+            r, c = random.choice(empty_tiles)
+            self.board[r][c] = random.choice([2, 4])
+
+    # Create the GUI
+    def create_ui(self):
+        self.main_grid = tk.Frame(self.window, bg='azure3', bd=3, width=400, height=400)
+        self.main_grid.grid(pady=(100, 0))
+
+        self.cells = []
+        for i in range(SIZE):
+            row = []
+            for j in range(SIZE):
+                cell_frame = tk.Frame(self.main_grid, bg='azure4', width=100, height=100)
+                cell_frame.grid(row=i, column=j, padx=5, pady=5)
+                cell_number = tk.Label(self.main_grid, bg='azure4', font=('Arial', 20, 'bold'), width=4, height=2)
+                cell_number.grid(row=i, column=j)
+                row.append(cell_number)
+            self.cells.append(row)
+
+        self.score_label = tk.Label(self.window, text=f"Score: {self.score}", font=('Arial', 20, 'bold'))
+        self.score_label.grid()
+        self.window.bind("<Key>", self.handle_key)
+
+    # Update the GUI with the current board state
+    def update_ui(self):
+        for r in range(SIZE):
+            for c in range(SIZE):
+                value = self.board[r][c]
+                if value == 0:
+                    self.cells[r][c].configure(text="", bg='azure4')
+                else:
+                    self.cells[r][c].configure(text=str(value), bg='lightgoldenrodyellow')
+        self.score_label.configure(text=f"Score: {self.score}")
+        self.window.update_idletasks()
+
+    # Handle user input
+    def handle_key(self, event):
+        if event.keysym in ('Up', 'Down', 'Left', 'Right'):
+            self.previous_board = copy.deepcopy(self.board)
+
+            if self.move(event.keysym):
+                self.add_new_tile()
+                self.update_ui()
+
+                if self.check_win():
+                    self.display_message("You win!")
+                elif not self.can_move():
+                    self.display_message("Game Over!")
+
+    # Display message for win/loss
+    def display_message(self, message):
+        result_label = tk.Label(self.window, text=message, font=('Arial', 30, 'bold'))
+        result_label.grid(row=0, column=0, columnspan=SIZE)
+        self.window.unbind("<Key>")
+
+    # Move tiles in the given direction
+    def move(self, direction):
+        def slide(row):
+            new_row = [i for i in row if i != 0]
+            new_row += [0] * (SIZE - len(new_row))
+            return new_row
+
+        def combine(row):
+            for i in range(SIZE - 1):
+                if row[i] != 0 and row[i] == row[i + 1]:
+                    row[i] *= 2
+                    row[i + 1] = 0
+                    self.score += row[i]
+            return row
+
+        moved = False
+        for i in range(SIZE):
+            if direction == 'Left':
+                new_row = slide(combine(slide(self.board[i])))
+                if new_row != self.board[i]:
+                    moved = True
+                self.board[i] = new_row
+
+            elif direction == 'Right':
+                new_row = slide(combine(slide(self.board[i][::-1])))[::-1]
+                if new_row != self.board[i]:
+                    moved = True
+                self.board[i] = new_row
+
+            elif direction == 'Up':
+                column = [self.board[r][i] for r in range(SIZE)]
+                new_column = slide(combine(slide(column)))
+                if new_column != column:
+                    moved = True
+                for r in range(SIZE):
+                    self.board[r][i] = new_column[r]
+
+            elif direction == 'Down':
+                column = [self.board[r][i] for r in range(SIZE)]
+                new_column = slide(combine(slide(column[::-1])))[::-1]
+                if new_column != column:
+                    moved = True
+                for r in range(SIZE):
+                    self.board[r][i] = new_column[r]
+
+        return moved
+
+    # Check if the player has won
+    def check_win(self):
+        for row in self.board:
+            if TARGET in row:
+                return True
+        return False
+
+    # Check if there are any moves left
+    def can_move(self):
+        for r in range(SIZE):
+            for c in range(SIZE):
+                if self.board[r][c] == 0:
+                    return True
+                if c < (SIZE - 1) and self.board[r][c] == self.board[r][c + 1]:
+                    return True
+                if r < (SIZE - 1) and self.board[r][c] == self.board[r + 1][c]:
+                    return True
+        return False
+
+    # Undo the last move
+    def undo(self):
+        if self.previous_board:
+            self.board = self.previous_board
+            self.previous_board = None
+            self.update_ui()
+
+if __name__ == "__main__":
+    Game2048()
